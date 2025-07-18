@@ -48,12 +48,10 @@ onMounted(async () => {
     let model: Model | THREE.Object3D | undefined;
     switch (data.type) {
       case 'join':
-        console.log('[CLIENT] 角色进入:', data.users);
         console.log('[CLIENT] 已存在角色:', includedUserIds);
 
         data.users.forEach(async (user: User) => {
           if (includedUserIds.has(user.name)) {
-            console.log('[CLIENT] 已存在:', user.name);
             return;
           }
           const model = await new PersonModel(
@@ -65,17 +63,28 @@ onMounted(async () => {
               }));
             }
           ).build(user);
+          console.log('[CLIENT] 角色进入:', data.users);
 
           sceneRenderer.scene.add(model);
           includedUserIds.add(user.name);
         });
         break;
       case 'update':
-        model = Model.list.find(model => model.name === data.user.name);  
-        if (model) {
-          model.keyStates[data.event] = true;
+        model = Model.list.find(model => model.name === data.event.data.name);
+        if (model?.name === userInfo.value?.name) {
+          return;
         }
-
+        console.log('[CLIENT 角色更新]', data.event.data.key, data.event.data.state)
+        if (model) {
+          switch (data.event.type) {
+            case 'keyboard':
+              model.keyStates[data.event.data.key] = data.event.data.state;
+              break;
+          
+            default:
+              break;
+          }
+        }
         break;
       case 'quit':
         model = sceneRenderer.scene.getObjectByName(data.user.name);

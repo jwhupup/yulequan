@@ -3,14 +3,22 @@ import { FBXLoader } from "three/examples/jsm/loaders/FBXLoader.js";
 import { OrbitControls } from "three/examples/jsm/controls/OrbitControls.js";
 import WalkingFbx from "@/assets/model/fbx/Walking.fbx?url";
 import WalkingBackward from "@/assets/model/fbx/WalkingBackward.fbx?url";
+import LeftStrafeWalk from "@/assets/model/fbx/LeftStrafeWalk.fbx?url";
+import RightStrafeWalk from "@/assets/model/fbx/RightStrafeWalk.fbx?url";
+import LeftTurn from "@/assets/model/fbx/LeftTurn.fbx?url";
+import RightTurn from "@/assets/model/fbx/RightTurn.fbx?url";
 import IdleFbx from "@/assets/model/fbx/Idle.fbx?url";
 import type { ModelBasicInfo } from "../types/user";
 import { userInfo } from "../store/user";
 
 export type ActionCallback = (event: ModelUpdateEvent) => void;
 export interface ModelUpdateEvent {
-  name: string;
-  [key: string]: any;
+  type: "keyboard" | "mouse";
+  data: {
+    name: string;
+    key: string;
+    state: boolean;
+  };
 }
 
 export class SceneRenderer {
@@ -48,32 +56,56 @@ export class SceneRenderer {
 }
 
 export class Model {
-  name: string = '';
+  name: string = "";
   actionCallback: ActionCallback;
   model: THREE.Group<THREE.Object3DEventMap> | null = null;
   static list: PersonModel[] = [];
   keyStates: Record<string, boolean> = {
-    W: false,
-    A: false,
-    S: false,
-    D: false,
+    KeyW: false,
+    KeyA: false,
+    KeyS: false,
+    KeyD: false,
   };
   constructor(actionCallback?: ActionCallback) {
     this.actionCallback = actionCallback || ((_) => {});
     this.event();
   }
-  event() { 
+  event() {
     document.addEventListener("keydown", (event) => {
-      if (event.code === "KeyW") this.keyStates.W = true;
-      if (event.code === "KeyA") this.keyStates.A = true;
-      if (event.code === "KeyS") this.keyStates.S = true;
-      if (event.code === "KeyD") this.keyStates.D = true;
+      if (this.name === userInfo.value?.name) {
+        if (event.code === "KeyW") this.keyStates.KeyW = true;
+        if (event.code === "KeyA") this.keyStates.KeyA = true;
+        if (event.code === "KeyS") this.keyStates.KeyS = true;
+        if (event.code === "KeyD") this.keyStates.KeyD = true;
+
+        console.log("keydown", event.code);
+        this.notify({
+          type: "keyboard",
+          data: {
+            name: this.name,
+            key: event.code,
+            state: true,
+          },
+        });
+      }
     });
     document.addEventListener("keyup", (event) => {
-      if (event.code === "KeyW") this.keyStates.W = false;
-      if (event.code === "KeyA") this.keyStates.A = false;
-      if (event.code === "KeyS") this.keyStates.S = false;
-      if (event.code === "KeyD") this.keyStates.D = false;
+      if (this.name === userInfo.value?.name) {
+        if (event.code === "KeyW") this.keyStates.KeyW = false;
+        if (event.code === "KeyA") this.keyStates.KeyA = false;
+        if (event.code === "KeyS") this.keyStates.KeyS = false;
+        if (event.code === "KeyD") this.keyStates.KeyD = false;
+
+        console.log("keyup", this.name);
+        this.notify({
+          type: "keyboard",
+          data: {
+            name: this.name,
+            key: event.code,
+            state: false,
+          },
+        });
+      }
     });
   }
   notify(event: ModelUpdateEvent) {
@@ -86,14 +118,13 @@ export class PersonModel extends Model {
     super(actionCallback);
   }
   async build(info: ModelBasicInfo) {
+    console.log("[PersonModel build]", info, userInfo.value);
     const mainLoader = new FBXLoader();
 
     this.model = await mainLoader.loadAsync(WalkingFbx);
     this.name = info.name;
-    this.model.name = info.name;
     this.model.position.set(...info.position); // 设置模型位置
     this.model.animations[0].tracks.shift();
-    this.model.animations[0].name = 'walking';
 
     // 行走动画
     const mixer = new THREE.AnimationMixer(this.model);
@@ -104,7 +135,6 @@ export class PersonModel extends Model {
     const idleLoader = new FBXLoader();
     idleLoader.load(IdleFbx, (model) => {
       model.animations[0].tracks.shift();
-      model.animations[0].name = 'idle';
       this.model?.animations.push(model.animations[0]);
       idle = mixer.clipAction(model.animations[0]);
     });
@@ -114,52 +144,105 @@ export class PersonModel extends Model {
     const walkingBackwardLoader = new FBXLoader();
     walkingBackwardLoader.load(WalkingBackward, (model) => {
       model.animations[0].tracks.shift();
-      model.animations[0].name = 'walkingBackward';
       this.model?.animations.push(model.animations[0]);
       walkingBackward = mixer.clipAction(model.animations[0]);
     });
 
+    // 左移动画
+    let leftStrafeWalk: THREE.AnimationAction | undefined;
+    const leftStrafeWalkLoader = new FBXLoader();
+    leftStrafeWalkLoader.load(LeftStrafeWalk, (model) => {
+      model.animations[0].tracks.shift();
+      this.model?.animations.push(model.animations[0]);
+      leftStrafeWalk = mixer.clipAction(model.animations[0]);
+    });
+
+    // 右移动画
+    let rightStrafeWalk: THREE.AnimationAction | undefined;
+    const rightStrafeWalkLoader = new FBXLoader();
+    rightStrafeWalkLoader.load(RightStrafeWalk, (model) => {
+      model.animations[0].tracks.shift();
+      model.animations[0].tracks.pop();
+      this.model?.animations.push(model.animations[0]);
+      rightStrafeWalk = mixer.clipAction(model.animations[0]);
+    });
+
+    // 左转动画
+    let leftTurn: THREE.AnimationAction | undefined;
+    const leftTurnLoader = new FBXLoader();
+    leftTurnLoader.load(LeftTurn, (model) => {
+      // model.animations[0].tracks.shift();
+      // model.animations[0].tracks.pop();
+      this.model?.animations.push(model.animations[0]);
+      leftTurn = mixer.clipAction(model.animations[0]);
+      console.log(model.animations[0])
+    });
+
+    // 右转动画
+    let rightTurn: THREE.AnimationAction | undefined;
+    const rightTurnLoader = new FBXLoader();
+    rightTurnLoader.load(RightTurn, (model) => {
+      model.animations[0].tracks.shift();
+      this.model?.animations.push(model.animations[0]);
+      rightTurn = mixer.clipAction(model.animations[0]);
+    });
+
     // 动画更新
     const clock = new THREE.Clock();
-    const v = new THREE.Vector3(0, 0, 3);
+    const z = new THREE.Vector3(0, 0, 3);
+    const x = new THREE.Vector3(3, 0, 0);
     const animate = () => {
       requestAnimationFrame(animate);
       const delta = clock.getDelta();
       idle?.play();
 
-      if (info.name === userInfo.value?.name) {
-        if (this.keyStates.W) {
-          // 在间隔deltaTime时间内，玩家角色位移变化计算(速度*时间)
-          const deltaPos = v.clone().multiplyScalar(delta);
-          this.model?.position.add(deltaPos);
-          walkingBackward?.stop();
-          idle?.stop();
-          walking.play();
-          this.notify({
-            name: info.name,
-            key: 'W',
-            state: true,
-          });
-        } else if (this.keyStates.S) {
-          // 在间隔deltaTime时间内，玩家角色位移变化计算(速度*时间)
-          const deltaPos = v.clone().multiplyScalar(-delta);
-          this.model?.position.add(deltaPos);
-          walking.stop();
-          idle?.stop();
-          walkingBackward?.play();
-          this.notify({
-            name: info.name,
-            key: 'S',
-            state: true,
-          });
-        } else {
-          walking.stop();
-          walkingBackward?.stop();
-          idle?.play();
-        }
+      if (this.keyStates.KeyW && this.keyStates.KeyD) {
+        // 在间隔deltaTime时间内，玩家角色位移变化计算(速度*时间)
+        // const deltaPos = x.clone().multiplyScalar(-delta);
+        // this.model?.position.add(deltaPos);
+        idle?.stop();
+        rightTurn?.play();
+      } else if (this.keyStates.KeyW && this.keyStates.KeyA) {
+        // 在间隔deltaTime时间内，玩家角色位移变化计算(速度*时间)
+        // const deltaPos = x.clone().multiplyScalar(-delta);
+        // this.model?.position.add(deltaPos);
+        idle?.stop();
+        leftTurn?.play();
+      } else if (this.keyStates.KeyW) {
+        // 在间隔deltaTime时间内，玩家角色位移变化计算(速度*时间)
+        const deltaPos = z.clone().multiplyScalar(delta);
+        this.model?.position.add(deltaPos);
+        idle?.stop();
+        walking.play();
+      } else if (this.keyStates.KeyS) {
+        // 在间隔deltaTime时间内，玩家角色位移变化计算(速度*时间)
+        const deltaPos = z.clone().multiplyScalar(-delta);
+        this.model?.position.add(deltaPos);
+        idle?.stop();
+        walkingBackward?.play();
+      } else if (this.keyStates.KeyA) {
+        // 在间隔deltaTime时间内，玩家角色位移变化计算(速度*时间)
+        const deltaPos = x.clone().multiplyScalar(delta);
+        this.model?.position.add(deltaPos);
+        idle?.stop();
+        leftStrafeWalk?.play();
+      } else if (this.keyStates.KeyD) {
+        // 在间隔deltaTime时间内，玩家角色位移变化计算(速度*时间)
+        const deltaPos = x.clone().multiplyScalar(-delta);
+        this.model?.position.add(deltaPos);
+        idle?.stop();
+        rightStrafeWalk?.play();
+      } else {
+        walking.stop();
+        walkingBackward?.stop();
+        leftStrafeWalk?.stop();
+        rightStrafeWalk?.stop();
+        rightTurn?.stop();
+        leftTurn?.stop();
+        idle?.play();
       }
       mixer.update(delta);
-    }
+    };
     animate();
     Model.list.push(this);
     return this.model;
