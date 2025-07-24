@@ -6,7 +6,6 @@
   position: absolute;
   bottom: 95%;
   width: 200px;
-  left: -10%;
   z-index: 9999;
   text-align: center;
   pointer-events: none;
@@ -16,7 +15,7 @@
 .talk-box .talk-content {
   display: none;
   width: 200px;
-  padding: 4px 8px;
+  padding: 4px 0px;
   color: #fff;
   border: 1px solid #fff;
   border-radius: 6px;
@@ -25,7 +24,8 @@
   word-break: break-word;
 }
 .talk-box .talk-nickname {
-  padding: 4px 8px;
+  width: 200px;
+  padding: 4px 0px;
   color: greenyellow;
   white-space: nowrap;
 }

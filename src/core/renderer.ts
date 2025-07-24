@@ -55,6 +55,13 @@ export class SceneRenderer {
     const directionalLight = new THREE.DirectionalLight(0xffffff, 0.8);
     directionalLight.position.set(10, 10, 10);
     this.scene.add(directionalLight);
+
+    const onWindowResize = () => {
+      this.camera.aspect = window.innerWidth / window.innerHeight; // 更新宽高比
+      this.camera.updateProjectionMatrix();                        // 重新计算投影矩阵
+      this.renderer.setSize(window.innerWidth, window.innerHeight); // 重设渲染器分辨率
+    }
+    window.addEventListener('resize', onWindowResize, false);
     const animate = () => {
       requestAnimationFrame(animate);
       this.renderer.render(this.scene, this.camera);
@@ -83,7 +90,7 @@ export class TalkBubble {
   update() {
     this.temp.copy(this.offset).add(this.target.model.position);
     this.temp.project(this.camera);
-    const x = (this.temp.x * 0.5 + 0.5) * window.innerWidth;
+    const x = (this.temp.x * 0.5 + 0.5) * window.innerWidth - 100;
     const y = (this.temp.y * -0.5 + 0.5) * window.innerHeight;
     this.dom.style.transform = `translate(${x}px, ${y}px)`;
   }
