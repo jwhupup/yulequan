@@ -1,11 +1,6 @@
 <template>
-  <textarea
-    class="talk-input"
-    v-model="talkContent"
-    ref="talkInputRef"
-    placeholder="聊点什么..."
-    @keydown="handleKeydown"
-  />
+  <textarea class="talk-input" v-model="talkContent" ref="talkInputRef" placeholder="聊点什么..."
+    @keydown="handleKeydown" />
 </template>
 <script lang="ts" setup>
 import * as THREE from "three";
@@ -17,10 +12,10 @@ import {
   type ModelUpdateEvent,
   ThirdVisionControl,
   TalkBubble,
-} from "./core/renderer";
+} from "@/core/renderer";
 import { nanoid } from "nanoid";
-import { userInfo } from "./store/user";
-import type { User } from "./types/user";
+import { userInfo } from "@/store/user";
+import type { User } from "@/types/user";
 
 const sceneRenderer = new SceneRenderer();
 const includedUserIds = new Set<string>();
@@ -44,7 +39,7 @@ const handleKeydown = (event: KeyboardEvent) => {
 };
 
 onMounted(async () => {
-  const socket = new WebSocket(`ws://localhost:8080`);
+  const socket = new WebSocket(import.meta.env.DEV ? `ws://localhost:4000` : `wss://www.mindstorm.club/ws`);
 
   window.addEventListener("beforeunload", function (event) {
     const message = "您有未保存的数据，确定要离开页面吗？";
@@ -61,10 +56,12 @@ onMounted(async () => {
     return message;
   });
 
-  socket.onopen = () => {
+  socket.onopen = async () => {
     console.log("[CLIENT] Client connected to server");
+    const { name } = await fetch("https://cn.apihz.cn/api/zici/xingming.php?id=10006483&key=3d9df91d8dffdcf2e0a44be0db04bcab").then(res => res.json());
+    console.log("[CLIENT] 昵称:", name);
     userInfo.value = {
-      name: nanoid(),
+      name,
       position: [Math.random() * 10, 0, 0],
     };
     socket.send(
@@ -115,11 +112,7 @@ onMounted(async () => {
         if (model?.model.name === userInfo.value?.name) {
           return;
         }
-        console.log(
-          "[CLIENT 角色更新]",
-          data.event.data.key,
-          data.event.data.state
-        );
+        console.log("[CLIENT 角色更新]", data.event);
         if (model) {
           switch (data.event.type) {
             case "keyboard":

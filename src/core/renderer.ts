@@ -1,10 +1,10 @@
 import * as THREE from "three";
 import { FBXLoader } from "three/examples/jsm/loaders/FBXLoader.js";
-import { OrbitControls } from "three/examples/jsm/controls/OrbitControls.js";
+// import { OrbitControls } from "three/examples/jsm/controls/OrbitControls.js";
 import WalkingFbx from "@/assets/model/person/Walking.fbx?url";
-import { person } from "../assets/model";
-import type { ModelBasicInfo } from "../types/user";
-import { userInfo } from "../store/user";
+import { person } from "@/assets/model";
+import type { ModelBasicInfo } from "@/types/user";
+import { userInfo } from "@/store/user";
 
 export type ActionCallback = (event: ModelUpdateEvent) => void;
 export type ModelUpdateEvent =
@@ -64,15 +64,16 @@ export class SceneRenderer {
 }
 export class TalkBubble {
   private dom: HTMLElement;
+  private content: HTMLElement | undefined;
   private camera: THREE.Camera;
   private target: Model;
   private offset = new THREE.Vector3(0, 2.2, 0);
   private temp  = new THREE.Vector3();
   constructor(camera: THREE.Camera, target: Model) {
-    this.dom = this.createTalkDOM();   // ← 每个实例单独一个 DOM
     this.camera = camera;
     this.target = target;
     this.target.talkBubble = this;
+    this.dom = this.createTalkDOM();
     const animate = () => {
       requestAnimationFrame(animate);
       this.update();
@@ -87,20 +88,24 @@ export class TalkBubble {
     this.dom.style.transform = `translate(${x}px, ${y}px)`;
   }
   createTalkDOM() {
+    this.content = document.createElement('div');
+    const nickname = document.createElement('div');
     const box = document.createElement('div');
-    const content = document.createElement('div');
     box.className = 'talk-box';
-    content.className = 'talk-content';
-    box.appendChild(content);
+    this.content.className = 'talk-content';
+    nickname.className = 'talk-nickname';
+    nickname.textContent = this.target.model.name;
+    box.appendChild(this.content);
+    box.appendChild(nickname);
     document.body.appendChild(box);
-    return content;
+    return box;
   }
   show(text: string) {
-    this.dom.textContent = text;
-    this.dom.parentElement!.style.display = 'block';
+    this.content!.textContent = text;
+    this.content!.style.display = 'block';
     const timer = setTimeout(() => {
       clearTimeout(timer);
-      this.dom.parentElement!.style.display = 'none';
+      this.content!.style.display = 'none';
     }, 3000);
   }
 }
