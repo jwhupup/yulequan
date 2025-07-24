@@ -9,12 +9,13 @@ import {
   SceneRenderer,
   PersonModel,
   Model,
-  type ModelUpdateEvent,
   ThirdVisionControl,
   TalkBubble,
 } from "@/core/renderer";
 import { userInfo } from "@/store/user";
 import type { User } from "@/types/user";
+import { SocketManager } from "@/core/socket";
+import { EventManager, type ModelUpdateData } from "@/core/event";
 
 const sceneRenderer = new SceneRenderer();
 const includedUserIds = new Set<string>();
@@ -25,7 +26,7 @@ let mainModel: Model;
 const handleKeydown = (event: KeyboardEvent) => {
   if (event.code === "Enter") {
     mainModel.talkBubble?.show(talkContent.value);
-    mainModel.notify({
+    eventManager.notify({
       type: "message",
       data: {
         name: mainModel.model.name,
@@ -37,41 +38,25 @@ const handleKeydown = (event: KeyboardEvent) => {
   }
 };
 
-onMounted(async () => {
-  const socket = new WebSocket(import.meta.env.DEV ? `ws://localhost:4000` : `wss://www.mindstorm.club/ws`);
-
-  window.addEventListener("beforeunload", function (event) {
-    const message = "您有未保存的数据，确定要离开页面吗？";
-    event.returnValue = message; // 兼容旧版浏览器
-    socket.send(
-      JSON.stringify({
-        type: "quit",
-        user: {
-          name: userInfo.value?.name,
-          position: userInfo.value?.position,
-        },
-      })
-    );
-    return message;
-  });
-
-  socket.onopen = async () => {
-    console.log("[CLIENT] Client connected to server");
-    const { name } = await fetch("https://cn.apihz.cn/api/zici/xingming.php?id=10006483&key=3d9df91d8dffdcf2e0a44be0db04bcab").then(res => res.json());
-    console.log("[CLIENT] 昵称:", name);
-    userInfo.value = {
-      name,
-      position: [Math.random() * 10, 0, 0],
-    };
-    socket.send(
-      JSON.stringify({
-        type: "join",
-        user: userInfo.value,
-      })
-    );
-  };
-
-  socket.onmessage = async (event) => {
+// onMounted(() => {
+  const socketManager = new SocketManager({
+    url: import.meta.env.DEV ? `ws://localhost:4000` : `wss://www.mindstorm.club/ws`,
+    onopen: async () => {
+      console.log("[CLIENT] Client connected to server");
+      const { name } = await fetch("https://cn.apihz.cn/api/zici/xingming.php?id=10006483&key=3d9df91d8dffdcf2e0a44be0db04bcab").then(res => res.json());
+      console.log("[CLIENT] 昵称:", name);
+      userInfo.value = {
+        name,
+        position: [Math.random() * 10, 0, 0],
+      };
+      socketManager.socket?.send(
+        JSON.stringify({
+          type: "join",
+          user: userInfo.value,
+        })
+      );
+    },
+    onmessage: async (event) => {
     const data = JSON.parse(event.data);
     let model: Model | THREE.Object3D | undefined;
     switch (data.type) {
@@ -84,8 +69,8 @@ onMounted(async () => {
           }
           const person = await new PersonModel(
             // 更新位置信息
-            (event: ModelUpdateEvent) => {
-              socket.send(
+            (event: ModelUpdateData) => {
+              socketManager.socket?.send(
                 JSON.stringify({
                   type: "update",
                   event,
@@ -115,7 +100,7 @@ onMounted(async () => {
         if (model) {
           switch (data.event.type) {
             case "keyboard":
-              model.keyStates[data.event.data.key] = data.event.data.state;
+              eventManager.keyStates[data.event.data.key] = data.event.data.state;
               break;
             case "mouse":
               model.model.rotateY(+data.event.data.angle);
@@ -136,11 +121,10 @@ onMounted(async () => {
       default:
         break;
     }
-  };
-
-  socket.onclose = () => {
+  },
+  onclose: () => {
     console.log("[CLIENT] Client disconnected from server");
-    socket.send(
+    socketManager.socket?.send(
       JSON.stringify({
         type: "quit",
         user: {
@@ -149,8 +133,43 @@ onMounted(async () => {
         },
       })
     );
-  };
+  }
+  });
+
+  const eventManager = new EventManager(socketManager.socket);
+
+  document.addEventListener("mousemove", (event) => {
+  const mouseX = (event.clientX / window.innerWidth) * 2 - 1;
+  // 水平旋转：鼠标横向位移 × 灵敏度(sensitivity)
+  const angle = -mouseX * 0.01 * Math.PI;
+  mainModel.model.rotateY(angle);
+
+  if (userInfo.value?.name) {
+    eventManager.notify({
+      type: "mouse",
+      data: {
+        name: userInfo.value?.name,
+        angle,
+      },
+    });
+  }
 });
+
+  window.addEventListener("beforeunload", function (event) {
+    const message = "您有未保存的数据，确定要离开页面吗？";
+    event.returnValue = message; // 兼容旧版浏览器
+    socketManager.socket?.send(
+      JSON.stringify({
+        type: "quit",
+        user: {
+          name: userInfo.value?.name,
+          position: userInfo.value?.position,
+        },
+      })
+    );
+    return message;
+  });
+// });
 </script>
 
 <style scoped>
