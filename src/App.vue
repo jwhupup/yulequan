@@ -13,7 +13,6 @@ import {
   ThirdVisionControl,
   TalkBubble,
 } from "@/core/renderer";
-import { nanoid } from "nanoid";
 import { userInfo } from "@/store/user";
 import type { User } from "@/types/user";
 
