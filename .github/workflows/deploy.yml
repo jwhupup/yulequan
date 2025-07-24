@@ -38,3 +38,4 @@ jobs:
           source: "dist/"
           target: "/usr/local/nginx/html/"
           strip_components: 1
+          overwrite: true
